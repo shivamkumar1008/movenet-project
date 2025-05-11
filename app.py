@@ -1,5 +1,4 @@
 import streamlit as st
-import cv2
 import numpy as np
 import tensorflow as tf
 import tensorflow_hub as hub
@@ -8,13 +7,27 @@ import math
 import tempfile
 import os
 
+# Debug OpenCV import
+try:
+    import cv2
+    st.write("OpenCV (cv2) imported successfully!")
+except ModuleNotFoundError as e:
+    st.error(f"Failed to import cv2: {e}. Please check if opencv-python-headless is installed correctly.")
+    st.stop()
+
 # Load MoveNet model
 @st.cache_resource
 def load_model():
-    model = hub.load("https://tfhub.dev/google/movenet/singlepose/lightning/4")
-    return model.signatures['serving_default']
+    try:
+        model = hub.load("https://tfhub.dev/google/movenet/singlepose/lightning/4")
+        return model.signatures['serving_default']
+    except Exception as e:
+        st.error(f"Error loading model: {e}")
+        return None
 
 movenet = load_model()
+if movenet is None:
+    st.stop()
 
 # Global variables for eye movement tracking
 prev_left_eye = None
@@ -66,6 +79,7 @@ def process_video(video_file):
     cap = cv2.VideoCapture(tfile.name)
     if not cap.isOpened():
         st.error("Error: Could not open video file.")
+        os.unlink(tfile.name)
         return None, []
     
     output_frames = []
@@ -109,6 +123,7 @@ def process_video(video_file):
 # Streamlit app layout
 st.title("Pose Estimation with MoveNet")
 st.write("Upload a video file to perform pose estimation and track eye movement.")
+st.warning("Please upload a short video (5-10 seconds, <50MB) for best results.")
 
 # Initialize session state for eye movement
 if 'eye_movement' not in st.session_state:
